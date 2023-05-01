@@ -12,7 +12,7 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-EDA below:
+Loading data:
 
 ```{r}
 rm(list=ls())
@@ -34,6 +34,8 @@ df['position'] <- as.character(df$position)
 df['layout'] <- as.character(df$layout)
 
 ```
+
+Make scree plot on PCA describing neural features:
 
 ```{r}
 df_subset <- df %>% 
@@ -63,6 +65,8 @@ plot_pca_variance <- explained_variance %>%
 show(plot_pca_variance)
 ```
 
+Plot loadings for neural features.
+
 ```{r}
 vars <- dim(pca$rotation)[1]
 
@@ -81,6 +85,9 @@ hm_df %>%
 
 
 ```
+
+Plotting first 2 principal components of neural features shows that
+separation largely determined by frequency band.
 
 ```{r}
 plot_pca <- autoplot(pca, data = df, colour = 'freq_band', frame = FALSE) + theme_bw()
