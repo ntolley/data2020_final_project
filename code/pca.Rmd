@@ -1,0 +1,117 @@
+---
+title: "workspace.project"
+author: "Nicholas Tolley"
+date: "2023-04-12"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+EDA below:
+
+```{r}
+rm(list=ls())
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(plotly)
+library(ggfortify)
+df_alpha <- read_csv("../data/alpha_event_data.csv")
+df_beta <- read_csv("../data/beta_event_data.csv")
+df_gamma <- read_csv("../data/gamma_event_data.csv")
+band_names <- rep(c('alpha', 'beta', 'gamma'),
+                  times=c(nrow(df_alpha), nrow(df_beta), nrow(df_gamma)))
+
+df <- rbind(df_alpha, df_beta, df_gamma)
+names(df) <- tolower(str_replace_all(names(df_alpha), ' ', '_')) # clean names
+df['freq_band'] <- band_names
+df['position'] <- as.character(df$position)
+df['layout'] <- as.character(df$layout)
+
+```
+
+```{r}
+df_subset <- df %>% 
+  select(-layout, -position, -freq_band) %>% 
+  mutate_all(as.numeric) %>% 
+  na.omit()
+
+
+df_scaled <- scale(df_subset[, -1]) 
+pca <- prcomp(df_scaled)
+
+summary(pca)
+
+explained_variance <- tibble(PC = seq(1, 10, 1), 
+                             variance = summary(pca)$importance[2, 1:10])
+
+plot_pca_variance <- explained_variance %>% 
+  mutate(PC = as.character(PC)) %>% 
+  ggplot(aes(x = reorder(PC, -variance), y = variance)) +
+  geom_bar(stat = 'identity', fill = 'darkorange') +
+  scale_x_discrete(breaks = c('1', '2', '3', '4', '5', '6', '7', '8', '9', '10'), 
+                   labels = c('1', '2', '3', '4', '5', '6', '7', '8', '9', '10')) +
+  labs(x = 'Principal Component', y = 'Explained variance') +
+  theme_bw() 
+
+#ggsave('plot_pca_variance.png', plot = plot_pca_variance, dpi = 400, height = 6, width = 8)
+show(plot_pca_variance)
+```
+
+```{r}
+vars <- dim(pca$rotation)[1]
+
+hm_df <- data.frame(row = rep(1:vars, times = 4),
+                    col = as.numeric(rep(x = c('1', '2', '3', '4'), each = vars)),
+                    val = matrix(c(pca$rotation[, 1:4]), vars * 4, 1))
+
+hm_df %>% 
+  ggplot(aes(x = factor(col, levels = c(1,2,3,4)), y = factor(row, levels = unique(row)), fill = val)) +
+  geom_tile() +
+  scale_fill_gradient2(low = 'darkblue', mid = 'white', high = 'darkorange', midpoint = 0) +
+  theme_bw() +
+  labs(x = 'principal component',
+       y = 'variable') +
+  scale_y_discrete(labels = names(df))
+
+
+```
+
+```{r}
+plot_pca <- autoplot(pca, data = df, colour = 'freq_band', frame = FALSE) + theme_bw()
+ggsave('plot_pca_noframe.png', plot = plot_pca, dpi = 400, width = 5, height = 4)
+show(plot_pca)
+```
+
+```{r}
+#### Factor Analysis
+
+fa <- factanal(df_scaled, factors=10, rotation = 'varimax', lower = 0.1)
+fa
+
+fct_loadings <- data.frame(fa$loadings[ , ])
+variables <- row.names(fct_loadings)
+
+row.names(fct_loadings) <- NULL
+vars_rep <- paste(replicate(4, variables))
+
+heatmap_plt <- fct_loadings %>% 
+  gather() %>% 
+  mutate(variable = vars_rep,
+         factor = key,
+         loading = value) %>% 
+  select_at(vars(factor, variable, loading)) %>% 
+  ggplot(aes(x = factor, y = variable, fill = loading)) +
+  geom_tile() + 
+  scale_fill_gradientn(colors = c('darkblue','white', 'darkorange'),
+                       na.value = 'white') +
+  labs(x = 'Factor', y = 'Variable') +
+  theme_bw()
+
+#ggsave('heatmap_fa.png', plot = heatmap_plt, dpi = 400, height = 6, width = 8)
+```
