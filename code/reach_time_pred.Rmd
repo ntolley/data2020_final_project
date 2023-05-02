@@ -1,0 +1,87 @@
+---
+title: "workspace.project"
+author: "Nicholas Tolley"
+date: "2023-04-12"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load the data:
+
+```{r}
+rm(list=ls())
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(plotly)
+library(MASS)
+df_alpha <- read_csv("../data/alpha_event_data.csv")
+df_beta <- read_csv("../data/beta_event_data.csv")
+df_gamma <- read_csv("../data/gamma_event_data.csv")
+band_names <- rep(c('alpha', 'beta', 'gamma'),
+                  times=c(nrow(df_alpha), nrow(df_beta), nrow(df_gamma)))
+
+df <- rbind(df_alpha, df_beta, df_gamma)
+names(df) <- tolower(str_replace_all(names(df_alpha), ' ', '_')) # clean names
+df['freq_band'] <- band_names
+df['position'] <- as.character(df$position)
+df['layout'] <- as.character(df$layout)
+
+# Filter to events that occur prior to go cue (at 1 second)
+#df <- subset(df, peak_time < 1.0)
+```
+
+```{r}
+stats_df <- df %>%
+  group_by(trial, freq_band) %>%
+  summarize(
+    mean_freq_span = mean(frequency_span, na.rm = TRUE),
+    std_freq_span = sd(frequency_span, na.rm = TRUE),
+    mean_event_duration = mean(event_duration, na.rm = TRUE),
+    std_event_duration = sd(event_duration, na.rm = TRUE),
+    mean_peak_time = mean(peak_time, na.rm = TRUE),
+    std_peak_time = sd(peak_time, na.rm = TRUE),
+    mean_peak_power = mean(peak_power, na.rm = TRUE),
+    std_peak_power = sd(peak_power, na.rm = TRUE),
+    count = n(),
+    .groups = 'drop'
+  ) 
+
+# Add reaction_time, reach_time, and reaction_time_binary columns
+summary_df <- df %>%
+  group_by(trial) %>%
+  summarize(
+    reach_time = first(reach_time),
+    .groups = 'drop'
+  )
+
+# Pivot the statistics dataframe from long to wide format
+pred_df <- stats_df %>%
+  pivot_wider(
+    id_cols = trial,
+    names_from = freq_band,
+    values_from = c(mean_freq_span, std_freq_span, mean_event_duration, std_event_duration, mean_peak_time, std_peak_time, mean_peak_power, std_peak_power, count),
+    names_sep = "_"
+  ) %>%
+  left_join(summary_df, by = "trial")
+
+# NA is calculated for std when there is only 1 observation, replace with zero
+pred_df[is.na(pred_df)] <- 0
+```
+
+Run forward/backward model to find best neural features that predict
+reach time
+
+```{r}
+lm <- lm(reach_time ~ ., data = pred_df)
+
+# Backward and forward stepwise regression
+step <- stepAIC(lm, direction = "both")
+summary(step)
+```
