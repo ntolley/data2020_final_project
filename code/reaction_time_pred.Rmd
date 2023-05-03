@@ -63,6 +63,7 @@ summary_df <- df %>%
   group_by(trial) %>%
   summarize(
     reaction_time = log(first(reaction_time)),
+    reach_time = log(first(reach_time)),
     position = first(position),
     layout = first(layout),
     .groups = 'drop'
@@ -78,17 +79,56 @@ pred_df <- stats_df %>%
   ) %>%
   left_join(summary_df, by = "trial")
 
+median_reaction_time <- median(pred_df$reaction_time)
+pred_df['reaction_binary'] <- pred_df$reaction_time < median_reaction_time
+
+median_reach_time <- median(pred_df$reach_time)
+pred_df['reach_binary'] <- pred_df$reach_time < median_reach_time
+
 # NA is calculated for std when there is only 1 observation, replace with zero
 pred_df[is.na(pred_df)] <- 0
+
+reaction_linear_df <- subset(pred_df, select=-c(reach_time, reaction_binary, reach_binary))
+reach_linear_df <- subset(pred_df, select=-c(reaction_time, reaction_binary, reach_binary))
+
+reaction_binary_df <- subset(pred_df, select=-c(reach_time, reaction_time, reach_binary))
+reach_binary_df <- subset(pred_df, select=-c(reach_time, reaction_time, reach_binary))
+
 ```
 
 Run forward/backward model to find best neural features that predict
 reaction time
 
 ```{r}
-lm <- lm(reaction_time ~ ., data = pred_df)
+reaction_lm <- lm(reaction_time ~ ., data = reaction_linear_df)
+# Backward and forward stepwise regression
+reaction_linear_step <- stepAIC(reaction_lm, direction = "both")
+summary(reaction_linear_step)
+```
+
+```{r}
+reach_lm <- lm(reach_time ~ ., data = reach_linear_df)
+# Backward and forward stepwise regression
+reach_step <- stepAIC(reach_lm, direction = "both")
+summary(reach_step)
+```
+
+```{r}
+reaction_logit <- glm(reaction_binary ~ .,
+                      family = binomial(link = "logit"), data = reaction_binary_df)
 
 # Backward and forward stepwise regression
-step <- stepAIC(lm, direction = "both")
-summary(step)
+reaction_logit_step <- stepAIC(reaction_logit, direction = "both")
+summary(reaction_logit)
+```
+
+```{r}
+results_plot <- dwplot(list(reaction_linear_step, reaction_logit_step), ci = 0.90) + 
+  labs(x = "Coefficient Estimate", y = "Covariate") + 
+  scale_color_discrete(name = 'Model', labels = c('Linear (Reaction)', 'Logistic (Reaction)')) + 
+  theme_bw()
+
+
+show(results_plot)
+
 ```
