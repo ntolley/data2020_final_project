@@ -1,0 +1,50 @@
+---
+title: "workspace.project"
+author: "Nicholas Tolley"
+date: "2023-04-12"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Loading data:
+
+```{r}
+rm(list=ls())
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(plotly)
+df_alpha <- read_csv("../data/alpha_event_data.csv")
+df_beta <- read_csv("../data/beta_event_data.csv")
+df_gamma <- read_csv("../data/gamma_event_data.csv")
+band_names <- rep(c('alpha', 'beta', 'gamma'),
+                  times=c(nrow(df_alpha), nrow(df_beta), nrow(df_gamma)))
+
+df <- rbind(df_alpha, df_beta, df_gamma)
+names(df) <- tolower(str_replace_all(names(df_alpha), ' ', '_')) # clean names
+df['freq_band'] <- band_names
+df['position'] <- as.character(df$position)
+df['layout'] <- as.character(df$layout)
+df['post_move'] <- df$peak_time < 1.0
+
+stats_df <- df %>%
+  group_by(trial, freq_band, post_move) %>%
+  summarize(count = n(), .groups = 'drop')
+
+
+
+```
+
+```{r}
+event_box_plot <- ggplot(stats_df, aes(x=freq_band, y=count, fill=post_move)) + 
+    geom_boxplot() + labs(x='Frequency Band', y='Event Count') + theme_bw()
+
+ggsave('event_box_plot.png', plot=event_box_plot, dpi=400, width=5, height=5)
+show(event_box_plot)
+```

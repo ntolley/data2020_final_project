@@ -12,7 +12,7 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Load the data:
+Loading data*:*
 
 ```{r}
 rm(list=ls())
@@ -33,9 +33,12 @@ df['freq_band'] <- band_names
 df['position'] <- as.character(df$position)
 df['layout'] <- as.character(df$layout)
 
-# Filter to events that occur prior to go cue (at 1 second)
-#df <- subset(df, peak_time < 1.0)
+
+
 ```
+
+Neural Features calculated for the alpha, beta, and gamma frequency
+bands
 
 ```{r}
 stats_df <- df %>%
@@ -47,8 +50,10 @@ stats_df <- df %>%
     std_event_duration = sd(event_duration, na.rm = TRUE),
     mean_peak_time = mean(peak_time, na.rm = TRUE),
     std_peak_time = sd(peak_time, na.rm = TRUE),
-    mean_peak_power = mean(peak_power, na.rm = TRUE),
-    std_peak_power = sd(peak_power, na.rm = TRUE),
+    mean_peak_power = mean(log(peak_power), na.rm = TRUE),
+    std_peak_power = sd(log(peak_power), na.rm = TRUE),
+    mean_peak_frequency = mean(peak_frequency, na.rm = TRUE),
+    std_peak_frequency = sd(peak_frequency, na.rm = TRUE),
     count = n(),
     .groups = 'drop'
   ) 
@@ -57,7 +62,9 @@ stats_df <- df %>%
 summary_df <- df %>%
   group_by(trial) %>%
   summarize(
-    reach_time = first(reach_time),
+    reach_time = log(first(reach_time)),
+    position = first(position),
+    layout = first(layout),
     .groups = 'drop'
   )
 
@@ -66,7 +73,7 @@ pred_df <- stats_df %>%
   pivot_wider(
     id_cols = trial,
     names_from = freq_band,
-    values_from = c(mean_freq_span, std_freq_span, mean_event_duration, std_event_duration, mean_peak_time, std_peak_time, mean_peak_power, std_peak_power, count),
+    values_from = c(mean_freq_span, std_freq_span, mean_event_duration, std_event_duration, mean_peak_time, std_peak_time, mean_peak_power, std_peak_power, mean_peak_frequency, std_peak_frequency, count),
     names_sep = "_"
   ) %>%
   left_join(summary_df, by = "trial")
@@ -76,7 +83,7 @@ pred_df[is.na(pred_df)] <- 0
 ```
 
 Run forward/backward model to find best neural features that predict
-reach time
+reaction time
 
 ```{r}
 lm <- lm(reach_time ~ ., data = pred_df)

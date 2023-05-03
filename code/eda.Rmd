@@ -53,7 +53,7 @@ event_time_fig <- ggplot(data=df,
   scale_x_continuous(breaks = seq(from = 0, to = 2, by = 0.25)) +
   scale_y_log10() +
   labs(x = 'Peak Time', y = 'Normalized Peak Power') + facet_wrap('freq_band', ncol=1) + scale_y_log10() +
-  theme_bw()
+  theme_bw() + geom_vline(xintercept=1, color='red')
 
 ggsave(filename='events_over_time.png', plot=event_time_fig, width=6, height=6, dpi=400)
 show(event_time_fig)
@@ -74,3 +74,10 @@ show(fig)
 ```
 
 QQ plots on behavioral variables
+
+```{r}
+qqplot <- ggplot(df, aes(sample=peak_power, color=freq_band)) + geom_qq() + geom_qq_line() + 
+  facet_wrap(~freq_band) + theme_bw() + labs(x='Theoretical', y='Sample')
+ggsave('neural_qqplot.png', plot=qqplot, dpi=400, height=5, width=7)
+show(qqplot)
+```
