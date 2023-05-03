@@ -78,6 +78,6 @@ QQ plots on behavioral variables
 ```{r}
 qqplot <- ggplot(df, aes(sample=peak_power, color=freq_band)) + geom_qq() + geom_qq_line() + 
   facet_wrap(~freq_band) + theme_bw() + labs(x='Theoretical', y='Sample')
-ggsave('neural_qqplot.png', plot=qqplot, dpi=400, height=5, width=7)
+ggsave('neural_qqplot.png', plot=qqplot, dpi=400, height=3, width=7)
 show(qqplot)
 ```

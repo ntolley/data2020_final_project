@@ -79,6 +79,8 @@ pred_df <- stats_df %>%
   ) %>%
   left_join(summary_df, by = "trial")
 
+pred_df <- pred_df %>% mutate(across(where(is.numeric), scale))
+
 median_reaction_time <- median(pred_df$reaction_time)
 pred_df['reaction_binary'] <- pred_df$reaction_time < median_reaction_time
 
@@ -92,7 +94,7 @@ reaction_linear_df <- subset(pred_df, select=-c(reach_time, reaction_binary, rea
 reach_linear_df <- subset(pred_df, select=-c(reaction_time, reaction_binary, reach_binary))
 
 reaction_binary_df <- subset(pred_df, select=-c(reach_time, reaction_time, reach_binary))
-reach_binary_df <- subset(pred_df, select=-c(reach_time, reaction_time, reach_binary))
+reach_binary_df <- subset(pred_df, select=-c(reach_time, reaction_time, reaction_binary))
 
 ```
 
@@ -109,8 +111,8 @@ summary(reaction_linear_step)
 ```{r}
 reach_lm <- lm(reach_time ~ ., data = reach_linear_df)
 # Backward and forward stepwise regression
-reach_step <- stepAIC(reach_lm, direction = "both")
-summary(reach_step)
+reach_linear_step <- stepAIC(reach_lm, direction = "both")
+summary(reach_linear_step)
 ```
 
 ```{r}
@@ -123,12 +125,49 @@ summary(reaction_logit)
 ```
 
 ```{r}
-results_plot <- dwplot(list(reaction_linear_step, reaction_logit_step), ci = 0.90) + 
-  labs(x = "Coefficient Estimate", y = "Covariate") + 
-  scale_color_discrete(name = 'Model', labels = c('Linear (Reaction)', 'Logistic (Reaction)')) + 
+reach_logit <- glm(reach_binary ~ .,
+                      family = binomial(link = "logit"), data = reach_binary_df)
+
+# Backward and forward stepwise regression
+reach_logit_step <- stepAIC(reach_logit, direction = "both")
+summary(reach_logit)
+```
+
+```{r}
+summary(reaction_linear_step)
+```
+
+```{r}
+summary(reach_linear_step)
+```
+
+```{r}
+summary(reaction_logit_step)
+```
+
+```{r}
+summary(reach_logit_step)
+```
+
+```{r}
+linear_results_plot <- dwplot(list(reaction_linear_step, reach_linear_step), ci = 0.90) + 
+  labs(x = "Coefficient Estimate", y = "Covariate", title='Linear') + 
+  scale_color_discrete(name = 'Model', labels = c('Reaction', 'Reach')) + 
+  geom_vline(xintercept = 0, colour = "grey60", linetype = 2) + 
   theme_bw()
 
+ggsave('linear_regression_coef.png', plot=linear_results_plot, dpi=800, height=4, width=7)
+show(linear_results_plot)
 
-show(results_plot)
+```
 
+```{r}
+logistic_results_plot <- dwplot(list(reaction_logit_step, reach_logit_step), ci = 0.90) + 
+  labs(x = "Coefficient Estimate", y = "Covariate", title='Logistic (R Squared = )') + 
+  scale_color_discrete(name = 'Model', labels = c('Reaction', 'Reach')) + 
+  geom_vline(xintercept = 0, colour = "grey60", linetype = 2) + 
+  theme_bw()
+
+ggsave('logistic_regression_coef.png', plot=logistic_results_plot, dpi=800, height=4, width=7)
+show(logistic_results_plot)
 ```
