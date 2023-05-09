@@ -1,29 +1,14 @@
----
-title: "workspace.project"
-author: "Nicholas Tolley"
-date: "2023-04-12"
-output: html_document
-editor_options: 
-  markdown: 
-    wrap: 72
----
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-Loading data:
-
 ```{r}
 rm(list=ls())
-library(dplyr)
-library(ggplot2)
-library(tidyverse)
-library(plotly)
-library(RColorBrewer)
-df_alpha <- read_csv("../data/alpha_event_data.csv")
-df_beta <- read_csv("../data/beta_event_data.csv")
-df_gamma <- read_csv("../data/gamma_event_data.csv")
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(plotly))
+suppressPackageStartupMessages(library(RColorBrewer))
+
+df_alpha <- read_csv("../data/alpha_event_data.csv", show_col_types = FALSE)
+df_beta <- read_csv("../data/beta_event_data.csv", show_col_types = FALSE)
+df_gamma <- read_csv("../data/gamma_event_data.csv", show_col_types = FALSE)
 band_names <- rep(c('alpha', 'beta', 'gamma'),
                   times=c(nrow(df_alpha), nrow(df_beta), nrow(df_gamma)))
 
@@ -33,51 +18,53 @@ df['freq_band'] <- band_names
 df['position'] <- as.character(df$position)
 df['layout'] <- as.character(df$layout)
 
-#behavior_cols <- c('reaction_time', 'reach_time', 'grip_time')
 behavior_df <- group_by(df, trial) %>% summarise(reaction_time=first(reaction_time),
                                   reach_time=first(reach_time),
                                   grip_time=first(grip_time), position=first(position),
                                   layout=first(layout))
-
 ```
 
-Plotting alpha, beta, and gamma events over time shows a clear decrease
-in the peak power and occurrence of beta events after the go-cue (1
-second)
+Plotting alpha, beta, and gamma events over time shows a clear decrease in the peak power and occurrence of beta events after the go-cue (1 second).
 
 ```{r}
-
-event_time_fig <- ggplot(data=df,
-                         aes(x = peak_time, y = normalized_peak_power, color=peak_frequency)) +
+event_time_fig <- ggplot(data = df, aes(x = peak_time, y = normalized_peak_power, color = peak_frequency)) +
   geom_point(alpha = 0.3) +
   scale_x_continuous(breaks = seq(from = 0, to = 2, by = 0.25)) +
   scale_y_log10() +
-  labs(x = 'Peak Time', y = 'Normalized Peak Power') + facet_wrap('freq_band', ncol=1) + scale_y_log10() +
-  theme_bw() + geom_vline(xintercept=1, color='red')
+  labs(x = 'Peak Time', y = 'Normalized Peak Power') + 
+  facet_wrap('freq_band', ncol = 1) +
+  theme_bw() + 
+  geom_vline(xintercept = 1, color = 'red')
 
-ggsave(filename='events_over_time.png', plot=event_time_fig, width=6, height=6, dpi=400)
+ggsave(filename = 'events_over_time.png', plot = event_time_fig, width = 6, height = 6, dpi = 400)
 show(event_time_fig)
 ```
 
-Plotting reach vs reaction time shows small degree of separation
-according to trial condition (reach position / object layout)
+Plotting reach vs. reaction time shows a small degree of separation according to the trial condition (reach position / object layout).
 
 ```{r}
+fig <- ggplot(data = behavior_df, aes(x = reaction_time, y = reach_time, color = position)) +
+  geom_point() +
+  scale_x_log10() +
+  scale_y_log10() + 
+  facet_wrap('layout', nrow = 2, ncol = 2) +
+  labs(x = 'Reaction Time (s)', y = 'Reach Time (s)') + scale_color_brewer(palette = 'Dark2') +
+  theme_bw()
 
-fig <- ggplot(data=behavior_df, aes(x=reaction_time, y=reach_time, color=position)) +
-  geom_point() + scale_x_log10() + scale_y_log10() + facet_wrap('layout', nrow=2, ncol=2) +
-  theme_bw() + labs(x='Reaction Time (s)', y='Reach Time (s)') + scale_color_brewer(palette='Dark2')
-
-ggsave(filename='behavior_scatter.png', plot=fig, width=4, height=3, dpi=400)
+ggsave(filename = 'behavior_scatter.png', plot = fig, width = 4, height = 3, dpi = 400)
 show(fig)
-
 ```
 
-QQ plots on behavioral variables
+We will now create QQ plots for the behavioral variables.
 
 ```{r}
-qqplot <- ggplot(df, aes(sample=peak_power, color=freq_band)) + geom_qq() + geom_qq_line() + 
-  facet_wrap(~freq_band) + theme_bw() + labs(x='Theoretical', y='Sample')
-ggsave('neural_qqplot.png', plot=qqplot, dpi=400, height=3, width=7)
+qqplot <- ggplot(df, aes(sample = peak_power, color = freq_band)) + 
+  geom_qq() + 
+  geom_qq_line() + 
+  facet_wrap(~freq_band) +
+  labs(x = 'Theoretical', y = 'Sample') +
+  theme_bw()
+
+ggsave('neural_qqplot.png', plot = qqplot, dpi = 400, height = 3, width = 7)
 show(qqplot)
 ```
