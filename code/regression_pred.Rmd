@@ -6,6 +6,7 @@ suppressPackageStartupMessages(library(tidyverse))
 suppressPackageStartupMessages(library(plotly))
 suppressPackageStartupMessages(library(MASS))
 suppressPackageStartupMessages(library(dotwhisker))
+suppressPackageStartupMessages(library(pscl))
 
 df_alpha <- read_csv("../data/alpha_event_data.csv", show_col_types = FALSE)
 df_beta <- read_csv("../data/beta_event_data.csv", show_col_types = FALSE)
@@ -116,18 +117,22 @@ summary(reach_logit)$coef
 
 ```{r}
 summary(reaction_linear_step)
+summary(reaction_linear_step)$r.squared
 ```
 
 ```{r}
 summary(reach_linear_step)
+summary(reach_linear_step)$r.squared
 ```
 
 ```{r}
 summary(reaction_logit_step)
+pR2(reaction_logit_step)['McFadden']
 ```
 
 ```{r}
 summary(reach_logit_step)
+pR2(reach_logit_step)['McFadden']
 ```
 
 ```{r}
@@ -143,7 +148,7 @@ show(linear_results_plot)
 
 ```{r}
 logistic_results_plot <- dwplot(list(reaction_logit_step, reach_logit_step), ci = 0.90) + 
-  labs(x = "Coefficient Estimate", y = "Covariate", title = 'Logistic (R Squared = )') + 
+  labs(x = "Coefficient Estimate", y = "Covariate", title = 'Logistic') + 
   scale_color_discrete(name = 'Model', labels = c('Reaction', 'Reach')) + 
   geom_vline(xintercept = 0, colour = "grey60", linetype = 2) + 
   theme_bw()
