@@ -10,7 +10,7 @@ df_alpha <- read_csv("../data/alpha_event_data.csv", show_col_types = FALSE)
 df_beta <- read_csv("../data/beta_event_data.csv", show_col_types = FALSE)
 df_gamma <- read_csv("../data/gamma_event_data.csv", show_col_types = FALSE)
 band_names <- rep(c('alpha', 'beta', 'gamma'),
-                  times=c(nrow(df_alpha), nrow(df_beta), nrow(df_gamma)))
+                  times = c(nrow(df_alpha), nrow(df_beta), nrow(df_gamma)))
 
 df <- rbind(df_alpha, df_beta, df_gamma)
 names(df) <- tolower(str_replace_all(names(df_alpha), ' ', '_')) # clean names

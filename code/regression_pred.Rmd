@@ -1,44 +1,26 @@
----
-title: "workspace.project"
-author: "Nicholas Tolley"
-date: "2023-04-12"
-output: html_document
-editor_options: 
-  markdown: 
-    wrap: 72
----
-
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
-Loading data*:*
-
 ```{r}
 rm(list=ls())
-library(dplyr)
-library(ggplot2)
-library(tidyverse)
-library(plotly)
-library(MASS)
-df_alpha <- read_csv("../data/alpha_event_data.csv")
-df_beta <- read_csv("../data/beta_event_data.csv")
-df_gamma <- read_csv("../data/gamma_event_data.csv")
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(ggplot2))
+suppressPackageStartupMessages(library(tidyverse))
+suppressPackageStartupMessages(library(plotly))
+suppressPackageStartupMessages(library(MASS))
+suppressPackageStartupMessages(library(dotwhisker))
+
+df_alpha <- read_csv("../data/alpha_event_data.csv", show_col_types = FALSE)
+df_beta <- read_csv("../data/beta_event_data.csv", show_col_types = FALSE)
+df_gamma <- read_csv("../data/gamma_event_data.csv", show_col_types = FALSE)
 band_names <- rep(c('alpha', 'beta', 'gamma'),
-                  times=c(nrow(df_alpha), nrow(df_beta), nrow(df_gamma)))
+                  times = c(nrow(df_alpha), nrow(df_beta), nrow(df_gamma)))
 
 df <- rbind(df_alpha, df_beta, df_gamma)
 names(df) <- tolower(str_replace_all(names(df_alpha), ' ', '_')) # clean names
 df['freq_band'] <- band_names
 df['position'] <- as.character(df$position)
 df['layout'] <- as.character(df$layout)
-
-
-
 ```
 
-Neural Features calculated for the alpha, beta, and gamma frequency
-bands
+We will calculate the neural features for the alpha, beta, and gamma frequency bands.
 
 ```{r}
 stats_df <- df %>%
@@ -58,7 +40,7 @@ stats_df <- df %>%
     .groups = 'drop'
   ) 
 
-# Add reaction_time, reach_time, and reaction_time_binary columns
+# adds reaction_time, reach_time, and reaction_time_binary columns
 summary_df <- df %>%
   group_by(trial) %>%
   summarize(
@@ -69,12 +51,13 @@ summary_df <- df %>%
     .groups = 'drop'
   )
 
-# Pivot the statistics dataframe from long to wide format
+# pivots the statistics dataframe from long to wide format
 pred_df <- stats_df %>%
   pivot_wider(
     id_cols = trial,
     names_from = freq_band,
-    values_from = c(mean_freq_span, std_freq_span, mean_event_duration, std_event_duration, mean_peak_time, std_peak_time, mean_peak_power, std_peak_power, mean_peak_frequency, std_peak_frequency, count),
+    values_from = c(mean_freq_span, std_freq_span, mean_event_duration, std_event_duration, mean_peak_time, std_peak_time, mean_peak_power, std_peak_power,
+                    mean_peak_frequency, std_peak_frequency, count),
     names_sep = "_"
   ) %>%
   left_join(summary_df, by = "trial")
@@ -87,50 +70,48 @@ pred_df['reaction_binary'] <- pred_df$reaction_time < median_reaction_time
 median_reach_time <- median(pred_df$reach_time)
 pred_df['reach_binary'] <- pred_df$reach_time < median_reach_time
 
-# NA is calculated for std when there is only 1 observation, replace with zero
+# NA is calculated for std; when there is only 1 observation, replace with zero
 pred_df[is.na(pred_df)] <- 0
 
-reaction_linear_df <- subset(pred_df, select=-c(reach_time, reaction_binary, reach_binary))
-reach_linear_df <- subset(pred_df, select=-c(reaction_time, reaction_binary, reach_binary))
+reaction_linear_df <- subset(pred_df, select = -c(reach_time, reaction_binary, reach_binary))
+reach_linear_df <- subset(pred_df, select = -c(reaction_time, reaction_binary, reach_binary))
 
-reaction_binary_df <- subset(pred_df, select=-c(reach_time, reaction_time, reach_binary))
-reach_binary_df <- subset(pred_df, select=-c(reach_time, reaction_time, reaction_binary))
-
+reaction_binary_df <- subset(pred_df, select = -c(reach_time, reaction_time, reach_binary))
+reach_binary_df <- subset(pred_df, select = -c(reach_time, reaction_time, reaction_binary))
 ```
 
-Run forward/backward model to find best neural features that predict
-reaction time
+We will run the forward/backward model to find the best neural features that predict reaction time.
 
 ```{r}
 reaction_lm <- lm(reaction_time ~ ., data = reaction_linear_df)
-# Backward and forward stepwise regression
-reaction_linear_step <- stepAIC(reaction_lm, direction = "both")
-summary(reaction_linear_step)
+
+# backward and forward stepwise regression
+reaction_linear_step <- invisible(stepAIC(reaction_lm, direction = "both"))
+summary(reaction_linear_step)$coef
 ```
 
 ```{r}
 reach_lm <- lm(reach_time ~ ., data = reach_linear_df)
-# Backward and forward stepwise regression
+
+# backward and forward stepwise regression
 reach_linear_step <- stepAIC(reach_lm, direction = "both")
-summary(reach_linear_step)
+summary(reach_linear_step)$coef
 ```
 
 ```{r}
-reaction_logit <- glm(reaction_binary ~ .,
-                      family = binomial(link = "logit"), data = reaction_binary_df)
+reaction_logit <- glm(reaction_binary ~ ., family = binomial(link = "logit"), data = reaction_binary_df)
 
-# Backward and forward stepwise regression
+# backward and forward stepwise regression
 reaction_logit_step <- stepAIC(reaction_logit, direction = "both")
-summary(reaction_logit)
+summary(reaction_logit)$coef
 ```
 
 ```{r}
-reach_logit <- glm(reach_binary ~ .,
-                      family = binomial(link = "logit"), data = reach_binary_df)
+reach_logit <- glm(reach_binary ~ ., family = binomial(link = "logit"), data = reach_binary_df)
 
-# Backward and forward stepwise regression
+# backward and forward stepwise regression
 reach_logit_step <- stepAIC(reach_logit, direction = "both")
-summary(reach_logit)
+summary(reach_logit)$coef
 ```
 
 ```{r}
@@ -151,23 +132,22 @@ summary(reach_logit_step)
 
 ```{r}
 linear_results_plot <- dwplot(list(reaction_linear_step, reach_linear_step), ci = 0.90) + 
-  labs(x = "Coefficient Estimate", y = "Covariate", title='Linear') + 
+  labs(x = "Coefficient Estimate", y = "Covariate", title = 'Linear') + 
   scale_color_discrete(name = 'Model', labels = c('Reaction', 'Reach')) + 
   geom_vline(xintercept = 0, colour = "grey60", linetype = 2) + 
   theme_bw()
 
-ggsave('linear_regression_coef.png', plot=linear_results_plot, dpi=800, height=4, width=7)
+ggsave('linear_regression_coef.png', plot = linear_results_plot, dpi = 800, height = 4, width = 7)
 show(linear_results_plot)
-
 ```
 
 ```{r}
 logistic_results_plot <- dwplot(list(reaction_logit_step, reach_logit_step), ci = 0.90) + 
-  labs(x = "Coefficient Estimate", y = "Covariate", title='Logistic (R Squared = )') + 
+  labs(x = "Coefficient Estimate", y = "Covariate", title = 'Logistic (R Squared = )') + 
   scale_color_discrete(name = 'Model', labels = c('Reaction', 'Reach')) + 
   geom_vline(xintercept = 0, colour = "grey60", linetype = 2) + 
   theme_bw()
 
-ggsave('logistic_regression_coef.png', plot=logistic_results_plot, dpi=800, height=4, width=7)
+ggsave('logistic_regression_coef.png', plot = logistic_results_plot, dpi = 800, height = 4, width = 7)
 show(logistic_results_plot)
 ```
